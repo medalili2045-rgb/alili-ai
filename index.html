@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alili AI</title>
+    <meta name="apple-mobile-web-app-title" content="Alili AI">
+    <meta name="application-name" content="Alili AI">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        :root {
+            --bg-quantum: #040406;
+            --panel-bg: rgba(20, 20, 28, 0.9);
+            --neon-green: #00ffcc;
+            --neon-blue: #0077ff;
+            --neon-purple: #8a2be2;
+            --text-light: #f1f5f9;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background: var(--bg-quantum); color: var(--text-light); overflow-x: hidden; min-height: 100vh; }
+        .os-container { display: flex; flex-direction: column; min-height: 100vh; }
+        header { background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue), var(--neon-green)); padding: 18px; text-align: center; font-weight: 900; font-size: 1.4rem; }
+        .workspace { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px; padding: 20px; flex: 1; }
+        .quantum-panel { background: var(--panel-bg); border: 1px solid rgba(255,255,255,0.05); border-radius: 20px; padding: 20px; position: relative; }
+        .quantum-panel:hover { border-color: var(--neon-green); box-shadow: 0 0 25px rgba(0, 255, 204, 0.2); }
+        .panel-header { font-size: 1.1rem; font-weight: 800; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
+        .quantum-btn { background: linear-gradient(135deg, var(--neon-blue), var(--neon-green)); color: #000; border: none; padding: 14px; border-radius: 12px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 10px; display: block; text-align: center; text-decoration: none; }
+        .quantum-btn:hover { filter: brightness(1.2); box-shadow: 0 0 15px var(--neon-green); }
+        .quantum-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        textarea, input, select { background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; color: #fff; width: 100%; font-size: 0.95rem; margin-top: 8px; }
+        #canvas3d { width: 100%; height: 200px; border-radius: 12px; background: #000; border: 1px solid #111; overflow: hidden; }
+        .quantum-badge { position: absolute; top: 20px; left: 20px; font-size: 0.7rem; padding: 4px 10px; border-radius: 30px; background: rgba(0, 255, 204, 0.15); color: var(--neon-green); font-weight: 900; border: 1px solid rgba(0,255,204,0.3); }
+        .terminal-output { background: #020204; color: var(--neon-green); padding: 12px; border-radius: 10px; font-family: 'Courier New', monospace; font-size: 0.8rem; height: 140px; overflow-y: auto; margin-top: 10px; white-space: pre-wrap; }
+        #previewImg { max-width: 100%; border-radius: 8px; margin-top: 10px; display: none; }
+        .progress-bar { width: 100%; height: 6px; background: #111; border-radius: 3px; margin-top: 8px; overflow: hidden; display: none; }
+        .progress-fill { height: 100%; background: var(--neon-green); width: 0%; transition: width 0.3s; }
+        .ai-badge { background: rgba(138, 43, 226, 0.2); border-color: rgba(138,43,226,0.5); color: #b57aff; }
+        .hf-link { display: block; background: #ff9d00; color: #000; text-align: center; padding: 12px; border-radius: 10px; text-decoration: none; font-weight: bold; margin-top: 10px; }
+        .hf-link:hover { filter: brightness(1.1); }
+    </style>
+</head>
+<body>
+    <div class="os-container">
+        <header>Alili AI 🚀</header>
+        
+        <div class="workspace">
+            <!-- 1. تحسين AI (Hugging Face) -->
+            <div class="quantum-panel">
+                <span class="quantum-badge ai-badge">HF AI</span>
+                <div class="panel-header">🤖 محرر الصور بالذكاء الاصطناعي</div>
+                <p style="font-size: 0.85rem; color: #aaa; margin-bottom: 8px;">اختر Space من Hugging Face، ثم افتحه لتحرير صورك:</p>
+                
+                <select id="hfSpaceSelect" style="margin-bottom: 8px;">
+                    <option value="https://huggingface.co/spaces/Qwen/Qwen-Image-Edit">Qwen-Image-Edit — تحرير بالأوامر</option>
+                    <option value="https://huggingface.co/spaces/timbrooks/instruct-pix2pix">InstructPix2Pix — تحرير بالأوامر</option>
+                    <option value="https://huggingface.co/spaces/ai-forever/Real-ESRGAN">Real-ESRGAN — تحسين الجودة</option>
+                    <option value="https://huggingface.co/spaces/black-forest-labs/FLUX.1-Kontext-Dev">FLUX Kontext — تحرير متقدم</option>
+                </select>
+                
+                <a id="hfOpenBtn" href="https://huggingface.co/spaces/Qwen/Qwen-Image-Edit" target="_blank" class="hf-link">
+                    🚀 افتح Space في نافذة جديدة
+                </a>
+                
+                <div class="terminal-output" id="aiLog" style="margin-top: 12px;">> اختر Space ثم اضغط الزر.
+> ملاحظة: قد تحتاج للانتظار في قائمة الانتظار إذا كان Space مشغولاً.</div>
+            </div>
+
+            <!-- 2. الكاميرا -->
+            <div class="quantum-panel">
+                <span class="quantum-badge">Camera</span>
+                <div class="panel-header">📸 الكاميرا</div>
+                <input type="file" id="cameraInput" accept="image/*" capture="environment" style="margin-bottom: 8px;">
+                <button class="quantum-btn" onclick="analyzeImage()">تحليل الصورة</button>
+                <img id="previewImg" alt="معاينة">
+                <div class="terminal-output" id="cameraLog">> جاهز...</div>
+            </div>
+
+            <!-- 3. OCR -->
+            <div class="quantum-panel">
+                <span class="quantum-badge">OCR</span>
+                <div class="panel-header">🔍 استخراج النص من الصور</div>
+                <input type="file" id="ocrInput" accept="image/*" style="margin-bottom: 8px;">
+                <button class="quantum-btn" id="ocrBtn" onclick="runOCR()">استخراج النص</button>
+                <div class="progress-bar" id="ocrProgress">
+                    <div class="progress-fill" id="ocrProgressFill"></div>
+                </div>
+                <div class="terminal-output" id="ocrLog" style="height: 160px;">> اختر صورة فيها نص</div>
+            </div>
+
+            <!-- 4. 3D -->
+            <div class="quantum-panel">
+                <span class="quantum-badge">3D</span>
+                <div class="panel-header">🎮 الرسوميات 3D</div>
+                <div id="canvas3d"></div>
+                <button class="quantum-btn" onclick="mutate3DEnvironment()">تغيير اللون</button>
+            </div>
+
+            <!-- 5. النطق -->
+            <div class="quantum-panel">
+                <span class="quantum-badge">Speech</span>
+                <div class="panel-header">🔊 النطق الصوتي</div>
+                <textarea id="speechText" rows="3">مرحباً بك في Alili AI.</textarea>
+                <button class="quantum-btn" onclick="generateSpeechAI()">توليد النطق</button>
+                <div class="terminal-output" id="speechLog">> جاهز...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== 3D =====
+        let scene, camera, renderer, quantumMesh;
+        function init3D() {
+            const container = document.getElementById('canvas3d');
+            if (!container || typeof THREE === 'undefined') return;
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(70, container.clientWidth / 200, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, 200);
+            container.appendChild(renderer.domElement);
+            const geometry = new THREE.TorusKnotGeometry(0.5, 0.15, 100, 16);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: true });
+            quantumMesh = new THREE.Mesh(geometry, material);
+            scene.add(quantumMesh);
+            camera.position.z = 2.2;
+            function animate() {
+                requestAnimationFrame(animate);
+                quantumMesh.rotation.x += 0.008;
+                quantumMesh.rotation.y += 0.012;
+                renderer.render(scene, camera);
+            }
+            animate();
+            window.addEventListener('resize', () => {
+                const w = container.clientWidth;
+                camera.aspect = w / 200;
+                camera.updateProjectionMatrix();
+                renderer.setSize(w, 200);
+            });
+        }
+        window.addEventListener('DOMContentLoaded', init3D);
+
+        function mutate3DEnvironment() {
+            if (!quantumMesh) return;
+            const colors = [0x00ffcc, 0x0077ff, 0x8a2be2, 0xff0055];
+            quantumMesh.material.color.setHex(colors[Math.floor(Math.random() * colors.length)]);
+        }
+
+        // ===== Camera =====
+        function analyzeImage() {
+            const input = document.getElementById('cameraInput');
+            const log = document.getElementById('cameraLog');
+            const img = document.getElementById('previewImg');
+            if (!input.files[0]) { log.textContent = '> اختر صورة أولاً'; return; }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                img.src = e.target.result;
+                img.style.display = 'block';
+                log.textContent = '> ✅ تم تحميل الصورة\n> الأبعاد: ' + img.naturalWidth + '×' + img.naturalHeight;
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+
+        // ===== Speech =====
+        function generateSpeechAI() {
+            const text = document.getElementById('speechText').value;
+            const log = document.getElementById('speechLog');
+            if (!('speechSynthesis' in window)) { log.textContent = '> ❌ لا يدعم النطق'; return; }
+            window.speechSynthesis.cancel();
+            setTimeout(() => {
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'ar-SA'; u.rate = 1.0;
+                u.onstart = () => { log.textContent = '> 🔊 جاري النطق...'; };
+                u.onend = () => { log.textContent = '> ✅ انتهى'; };
+                u.onerror = (e) => { log.textContent = '> ❌ خطأ: ' + e.error; };
+                window.speechSynthesis.speak(u);
+            }, 300);
+        }
+
+        // ===== OCR =====
+        async function runOCR() {
+            const input = document.getElementById('ocrInput');
+            const log = document.getElementById('ocrLog');
+            const btn = document.getElementById('ocrBtn');
+            const progressBar = document.getElementById('ocrProgress');
+            const progressFill = document.getElementById('ocrProgressFill');
+            
+            if (!input.files[0]) { log.textContent = '> ⚠️ اختر صورة'; return; }
+            if (typeof Tesseract === 'undefined') { log.textContent = '> ❌ Tesseract لم يُحمّل'; return; }
+            
+            btn.disabled = true;
+            progressBar.style.display = 'block';
+            progressFill.style.width = '0%';
+            log.textContent = '> 🔍 جاري OCR...';
+            
+            try {
+                const result = await Tesseract.recognize(input.files[0], 'ara+eng', {
+                    logger: (m) => {
+                        if (m.status === 'recognizing text') {
+                            const pct = Math.round(m.progress * 100);
+                            progressFill.style.width = pct + '%';
+                            log.textContent = '> ⏳ ' + pct + '%';
+                        }
+                    }
+                });
+                log.textContent = '> ✅ النص:\n\n' + (result.data.text.trim() || '(لا نص)');
+                progressFill.style.width = '100%';
+                setTimeout(() => { progressBar.style.display = 'none'; }, 1000);
+            } catch (e) {
+                log.textContent = '> ❌ خطأ: ' + e.message;
+                progressBar.style.display = 'none';
+            } finally { btn.disabled = false; }
+        }
+
+        // ===== HF Space =====
+        document.getElementById('hfSpaceSelect').addEventListener('change', (e) => {
+            document.getElementById('hfOpenBtn').href = e.target.value;
+            document.getElementById('aiLog').textContent = '> تم اختيار: ' + e.target.value.split('/').slice(-1)[0];
+        });
+    </script>
+</body>
+              </html>
