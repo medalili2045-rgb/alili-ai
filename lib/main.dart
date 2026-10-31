@@ -39,26 +39,37 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   Future<void> send(String text) async {
     state = [...state, ChatMessage(text, true)];
 
-    try {
-      final response = await http.post(
-        // تأكد أن هذا هو رابط الـ Worker الخاص بك
-        Uri.parse('https://alili-omni.medalili2045.workers.dev'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'message': text,
-          'model': 'gemini-3.8-flash', 
-        }),
-      ).timeout(const Duration(seconds: 30));
+    // سنحاول مرتين (المحاولة الأولى + إعادة محاولة واحدة)
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await http.post(
+          Uri.parse('https://alili-omni.medalili2045.workers.dev'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'message': text,
+            'model': 'gemini-3.8-flash',
+          }),
+        ).timeout(const Duration(seconds: 60)); // مهلة أطول (60 ثانية)
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        final reply = data['reply'] ?? data['error'] ?? 'لم أفهم الرد.';
-        state = [...state, ChatMessage(reply, false)];
-      } else {
-        state = [...state, ChatMessage('خطأ في الخادم (كود ${response.statusCode})', false)];
+        if (response.statusCode == 200) {
+          final data = jsonDecode(utf8.decode(response.bodyBytes));
+          final reply = data['reply'] ?? data['error'] ?? 'لم أفهم الرد.';
+          state = [...state, ChatMessage(reply, false)];
+          return; // نجح، نخرج من الدالة
+        } else {
+          // إذا كان الخطأ من الخادم (مثل 500)، لا فائدة من إعادة المحاولة
+          state = [...state, ChatMessage('خطأ في الخادم (كود ${response.statusCode})', false)];
+          return;
+        }
+      } catch (e) {
+        if (attempt == 1) {
+          // إذا كانت هذه المحاولة الأخيرة، نعرض الخطأ
+          state = [...state, ChatMessage('فشل الاتصال بعد محاولتين. تأكد من الشبكة.\n$e', false)];
+        } else {
+          // ننتظر ثانيتين قبل إعادة المحاولة
+          await Future.delayed(const Duration(seconds: 2));
+        }
       }
-    } catch (e) {
-      state = [...state, ChatMessage('خطأ في الاتصال: $e', false)];
     }
   }
 }
