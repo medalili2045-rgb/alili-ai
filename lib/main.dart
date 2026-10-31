@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const ProviderScope(child: AliliApp()));
@@ -32,14 +34,32 @@ class ChatMessage {
 }
 
 class ChatNotifier extends StateNotifier<List<ChatMessage>> {
-  ChatNotifier() : super([ChatMessage('أهلاً بك! أنا Alili Omni v4.0. جاهز للانطلاق؟', false)]);
+  ChatNotifier() : super([ChatMessage('أهلاً بك! أنا Alili Omni v4.0. أنا متصل بالخادم الآن.', false)]);
 
-  void send(String text) {
+  Future<void> send(String text) async {
     state = [...state, ChatMessage(text, true)];
-    // رد تجريبي (سيتم ربطه بالخادم لاحقاً)
-    Future.delayed(const Duration(seconds: 1), () {
-      state = [...state, ChatMessage('هذا رد تجريبي. الخادم جاهز للربط!', false)];
-    });
+
+    try {
+      final response = await http.post(
+        // تأكد أن هذا هو رابط الـ Worker الخاص بك
+        Uri.parse('https://alili-omni.medalili2045.workers.dev'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'message': text,
+          'model': 'gemini-3.8-flash', 
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final reply = data['reply'] ?? data['error'] ?? 'لم أفهم الرد.';
+        state = [...state, ChatMessage(reply, false)];
+      } else {
+        state = [...state, ChatMessage('خطأ في الخادم (كود ${response.statusCode})', false)];
+      }
+    } catch (e) {
+      state = [...state, ChatMessage('خطأ في الاتصال: $e', false)];
+    }
   }
 }
 
