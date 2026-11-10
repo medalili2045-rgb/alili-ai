@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'providers.dart';
 import 'screens.dart';
@@ -28,7 +27,7 @@ class AliliApp extends StatelessWidget {
           primary: Color(0xFF00E5FF),
           surface: Color(0xFF141414),
         ),
-        textTheme: GoogleFonts.tajawalTextTheme(ThemeData.dark().textTheme),
+        // تمت إزالة GoogleFonts لضمان عدم انهيار التطبيق عند الفتح
       ),
       home: const MainScreen(),
     );
