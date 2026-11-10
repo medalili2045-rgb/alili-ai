@@ -10,26 +10,44 @@ class ChatMessage {
   final bool isUser;
   ChatMessage(this.text, this.isUser);
   Map<String, dynamic> toJson() => {'text': text, 'isUser': isUser};
-  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(json['text'], json['isUser']);
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(json['text'] ?? '', json['isUser'] ?? false);
+  }
 }
 
 class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   final SharedPreferences prefs;
+  
   ChatNotifier(this.prefs) : super([]) {
     _load();
   }
 
   void _load() {
-    final data = prefs.getString('chat_history');
-    if (data != null) {
-      final List decoded = jsonDecode(data);
-      state = decoded.map((e) => ChatMessage.fromJson(e)).toList();
-    } else {
-      state = [ChatMessage('أهلاً بك! أنا Alili Omni v4.0. جاهز للبحث والتفكير.', false)];
+    try {
+      final data = prefs.getString('chat_history');
+      if (data != null && data.isNotEmpty) {
+        final List decoded = jsonDecode(data);
+        state = decoded.map((e) => ChatMessage.fromJson(e as Map<String, dynamic>)).toList();
+        if (state.isEmpty) _defaultState();
+      } else {
+        _defaultState();
+      }
+    } catch (e) {
+      // إذا كانت البيانات القديمة تالفة، نمسحها ونبدأ من جديد
+      _defaultState();
     }
   }
 
-  void _save() => prefs.setString('chat_history', jsonEncode(state.map((e) => e.toJson()).toList()));
+  void _defaultState() {
+    state = [ChatMessage('أهلاً بك! أنا Alili Omni v4.0. جاهز للبحث والتفكير.', false)];
+    _save();
+  }
+
+  void _save() {
+    try {
+      prefs.setString('chat_history', jsonEncode(state.map((e) => e.toJson()).toList()));
+    } catch (e) {}
+  }
 
   Future<void> send(String text, bool search, bool thinking) async {
     state = [...state, ChatMessage(text, true)];
