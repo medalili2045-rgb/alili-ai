@@ -4,9 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers.dart';
 import 'screens.dart';
 
-void main() {
-  runApp(const BootstrapApp());
-}
+void main() => runApp(const BootstrapApp());
 
 class BootstrapApp extends StatefulWidget {
   const BootstrapApp({super.key});
@@ -16,39 +14,21 @@ class BootstrapApp extends StatefulWidget {
 
 class _BootstrapAppState extends State<BootstrapApp> {
   SharedPreferences? _prefs;
-
   @override
-  void initState() {
-    super.initState();
-    _initPrefs();
+  void initState() { super.initState(); _init(); }
+  Future<void> _init() async {
+    try { final p = await SharedPreferences.getInstance(); if (mounted) setState(() => _prefs = p); }
+    catch (e) { if (mounted) setState(() => _prefs = null); }
   }
-
-  Future<void> _initPrefs() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (mounted) setState(() => _prefs = prefs);
-    } catch (e) {
-      // في حال فشل الذاكرة، نبدأ بدونها لتجنب الانهيار
-      if (mounted) setState(() => _prefs = null);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_prefs == null) {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: Scaffold(
-          backgroundColor: Color(0xFF0A0A0A),
-          body: Center(child: CircularProgressIndicator(color: Color(0xFF00E5FF))),
-        ),
+        home: Scaffold(backgroundColor: Color(0xFF0F0F0F), body: Center(child: CircularProgressIndicator(color: Colors.grey))),
       );
     }
-
-    return ProviderScope(
-      overrides: [sharedPrefsProvider.overrideWithValue(_prefs!)],
-      child: const AliliApp(),
-    );
+    return ProviderScope(overrides: [sharedPrefsProvider.overrideWithValue(_prefs!)], child: const AliliApp());
   }
 }
 
@@ -61,11 +41,8 @@ class AliliApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF00E5FF),
-          surface: Color(0xFF141414),
-        ),
+        scaffoldBackgroundColor: const Color(0xFF0F0F0F),
+        colorScheme: const ColorScheme.dark(surface: Color(0xFF1A1A1A)),
       ),
       home: const ChatScreen(),
     );
