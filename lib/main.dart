@@ -28,6 +28,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
       final prefs = await SharedPreferences.getInstance();
       if (mounted) setState(() => _prefs = prefs);
     } catch (e) {
+      // في حال فشل الذاكرة، نبدأ بدونها لتجنب الانهيار
       if (mounted) setState(() => _prefs = null);
     }
   }
@@ -66,7 +67,7 @@ class AliliApp extends StatelessWidget {
           surface: Color(0xFF141414),
         ),
       ),
-      home: const ChatScreen(), // الواجهة الموحدة
+      home: const ChatScreen(),
     );
   }
 }
