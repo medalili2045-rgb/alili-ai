@@ -31,7 +31,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
-      setState(() => _selectedImage = bytes);
+      if (mounted) {
+        setState(() => _selectedImage = bytes);
+      }
     }
   }
 
