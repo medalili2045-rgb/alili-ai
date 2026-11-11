@@ -4,13 +4,51 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'providers.dart';
 import 'screens.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  runApp(ProviderScope(
-    overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
-    child: const AliliApp(),
-  ));
+void main() {
+  runApp(const BootstrapApp());
+}
+
+class BootstrapApp extends StatefulWidget {
+  const BootstrapApp({super.key});
+  @override
+  State<BootstrapApp> createState() => _BootstrapAppState();
+}
+
+class _BootstrapAppState extends State<BootstrapApp> {
+  SharedPreferences? _prefs;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPrefs();
+  }
+
+  Future<void> _initPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (mounted) setState(() => _prefs = prefs);
+    } catch (e) {
+      if (mounted) setState(() => _prefs = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_prefs == null) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: Color(0xFF0A0A0A),
+          body: Center(child: CircularProgressIndicator(color: Color(0xFF00E5FF))),
+        ),
+      );
+    }
+
+    return ProviderScope(
+      overrides: [sharedPrefsProvider.overrideWithValue(_prefs!)],
+      child: const AliliApp(),
+    );
+  }
 }
 
 class AliliApp extends StatelessWidget {
@@ -27,39 +65,8 @@ class AliliApp extends StatelessWidget {
           primary: Color(0xFF00E5FF),
           surface: Color(0xFF141414),
         ),
-        // تمت إزالة GoogleFonts لضمان عدم انهيار التطبيق عند الفتح
       ),
-      home: const MainScreen(),
-    );
-  }
-}
-
-class MainScreen extends StatefulWidget {
-  const MainScreen({super.key});
-  @override
-  State<MainScreen> createState() => _MainScreenState();
-}
-
-class _MainScreenState extends State<MainScreen> {
-  int _index = 0;
-  final _screens = [const ChatScreen(), const ImageScreen(), const VideoScreen(), const GameScreen()];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _index, children: _screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        backgroundColor: const Color(0xFF141414),
-        indicatorColor: const Color(0xFF00E5FF).withOpacity(0.2),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'الدردشة'),
-          NavigationDestination(icon: Icon(Icons.image_outlined), label: 'الصور'),
-          NavigationDestination(icon: Icon(Icons.video_library_outlined), label: 'الفيديو'),
-          NavigationDestination(icon: Icon(Icons.sports_esports_outlined), label: 'الألعاب'),
-        ],
-      ),
+      home: const ChatScreen(), // الواجهة الموحدة
     );
   }
 }
