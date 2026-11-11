@@ -31,11 +31,10 @@ jobs:
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
           flutter pub get
-          dart run flutter_launcher_icons
-          dart run flutter_native_splash:create
+          flutter clean
 
       - name: Build APK
-        run: flutter build apk --release --target-platform android-arm64
+        run: flutter build apk --release
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
