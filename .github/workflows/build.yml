@@ -11,23 +11,35 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
+          
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.32.0'
           channel: 'stable'
-      - name: Setup Android Permissions
+          
+      - name: Setup Android Permissions and SDK
         run: |
           flutter create . --platforms=android --project-name alili_omni --org com.alili --template=app
+          
+          # إضافة الصلاحيات
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"\/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
+          
+          # تحديث إصدار الأندرويد ليتوافق مع الحزم الجديدة
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' android/app/build.gradle
+          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/' android/app/build.gradle
+          
           flutter pub get
           flutter clean
+          
       - name: Build APK
         run: flutter build apk --release
+        
       - name: Release
         uses: softprops/action-gh-release@v2
         if: success()
