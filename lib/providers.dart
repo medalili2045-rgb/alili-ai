@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,90 +6,119 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'services.dart';
 
 final sharedPrefsProvider = Provider<SharedPreferences>((ref) => throw UnimplementedError());
+final isGeneratingProvider = StateProvider<bool>((ref) => false);
+
+class AppSettings {
+  final String model;
+  final String systemPrompt;
+  final double temperature;
+  final double voiceSpeed;
+  final bool useSearch;
+  final bool useThinking;
+  AppSettings({this.model = 'glm', this.systemPrompt = 'أنت مساعد ذكي.', this.temperature = 0.5, this.voiceSpeed = 0.5, this.useSearch = false, this.useThinking = false});
+}
+
+class SettingsNotifier extends StateNotifier<AppSettings> {
+  final SharedPreferences prefs;
+  SettingsNotifier(this.prefs) : super(AppSettings(
+    model: prefs.getString('model') ?? 'glm',
+    systemPrompt: prefs.getString('system_prompt') ?? 'أنت مساعد ذكي.',
+    temperature: prefs.getDouble('temperature') ?? 0.5,
+    voiceSpeed: prefs.getDouble('voice_speed') ?? 0.5,
+    useSearch: prefs.getBool('use_search') ?? false,
+    useThinking: prefs.getBool('use_thinking') ?? false,
+  ));
+  void update(AppSettings s) {
+    state = s;
+    prefs.setString('model', s.model);
+    prefs.setString('system_prompt', s.systemPrompt);
+    prefs.setDouble('temperature', s.temperature);
+    prefs.setDouble('voice_speed', s.voiceSpeed);
+    prefs.setBool('use_search', s.useSearch);
+    prefs.setBool('use_thinking', s.useThinking);
+  }
+}
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) => SettingsNotifier(ref.watch(sharedPrefsProvider)));
 
 class ChatMessage {
   final String text;
   final bool isUser;
-  final Uint8List? imageBytes;
-  ChatMessage(this.text, this.isUser, {this.imageBytes});
-  
-  Map<String, dynamic> toJson() => {
-    'text': text, 
-    'isUser': isUser,
-    'image': imageBytes != null ? base64Encode(imageBytes!) : null
-  };
-  
-  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+  final Uint8List? imageBase64;
+  ChatMessage({this.text = '', required this.isUser, this.imageBase64});
+  Map<String, dynamic> toJson() => {'text': text, 'isUser': isUser, 'imageBase64': imageBase64 != null ? base64Encode(imageBase64!) : null};
+  factory ChatMessage.fromJson(Map<String, dynamic> j) {
     Uint8List? img;
-    try {
-      if (json['image'] != null) img = base64Decode(json['image']);
-    } catch (e) {
-      img = null; // تجاهل الصورة إذا كانت تالفة
-    }
-    return ChatMessage(json['text'] ?? '', json['isUser'] ?? false, imageBytes: img);
+    try { if (j['imageBase64'] != null) img = base64Decode(j['imageBase64']); } catch (e) {}
+    return ChatMessage(text: j['text'] ?? '', isUser: j['isUser'] ?? false, imageBase64: img);
   }
 }
 
 class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   final SharedPreferences prefs;
-  
-  ChatNotifier(this.prefs) : super([]) { _load(); }
+  final Ref ref;
+  List<String> userMemory = [];
+  Timer? _flushTimer;
+  String _buffer = "";
+  int _aiIndex = -1;
+
+  ChatNotifier(this.prefs, this.ref) : super([]) { _load(); }
 
   void _load() {
     try {
-      final data = prefs.getString('chat_history');
-      if (data != null && data.isNotEmpty) {
-        final List decoded = jsonDecode(data);
-        state = decoded.map((e) => ChatMessage.fromJson(e)).toList();
-        if (state.isEmpty) _defaultState();
-      } else {
-        _defaultState();
-      }
-    } catch (e) {
-      _defaultState(); // إذا كانت الذاكرة تالفة، نبدأ من جديد
-    }
+      final d = prefs.getString('chat_history');
+      if (d != null && d.isNotEmpty) state = (jsonDecode(d) as List).map((e) => ChatMessage.fromJson(e)).toList();
+      else state = [ChatMessage(text: 'أهلاً بك! جرب: "ارسم لي قطة" أو "اكتب كود بايثون".', isUser: false)];
+      userMemory = prefs.getStringList('user_memory') ?? [];
+    } catch (e) { state = [ChatMessage(text: 'أهلاً!', isUser: false)]; }
   }
 
-  void _defaultState() {
-    state = [ChatMessage('أهلاً بك! أنا Alili Omni v4.0. جاهز للبحث والتفكير.', false)];
+  void _save() => prefs.setString('chat_history', jsonEncode(state.map((e) => e.toJson()).toList()));
+
+  void _flush() {
+    if (_buffer.isEmpty || _aiIndex == -1) return;
+    final u = List<ChatMessage>.from(state);
+    if (_aiIndex < u.length) { u[_aiIndex] = ChatMessage(text: _buffer, isUser: false); state = u; }
+  }
+
+  Future<void> send(String text, Uint8List? img, AppSettings s) async {
+    ref.read(isGeneratingProvider.notifier).state = true;
+    state = [...state, ChatMessage(text: text, isUser: true, imageBase64: img)];
     _save();
-  }
-
-  void _save() {
-    try { prefs.setString('chat_history', jsonEncode(state.map((e) => e.toJson()).toList())); } catch (e) {}
-  }
-
-  Future<void> send(String text, Uint8List? imageBytes) async {
-    state = [...state, ChatMessage(text, true, imageBytes: imageBytes)];
-    _save();
-
-    state = [...state, ChatMessage('', false)];
-    final aiIndex = state.length - 1;
-
+    state = [...state, ChatMessage(text: '', isUser: false)];
+    _aiIndex = state.length - 1;
+    _buffer = "";
+    
+    _flushTimer = Timer.periodic(const Duration(milliseconds: 80), (_) => _flush());
     final history = state.sublist(0, state.length - 2).map((m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text}).toList();
 
-    String currentReply = "";
     try {
-      await for (final chunk in ApiService.chatStream(text, history, imageBytes)) {
-        currentReply += chunk;
-        final updatedState = List<ChatMessage>.from(state);
-        updatedState[aiIndex] = ChatMessage(currentReply, false);
-        state = updatedState;
+      await for (final chunk in ApiService.chatStream(text, history, userMemory, img, s)) {
+        final d = jsonDecode(chunk);
+        if (d['type'] == 'text') {
+          _buffer += d['text'];
+        } else if (d['type'] == 'code_output') {
+          _buffer += "\n\n**المخرجات:**\n```\n${d['output']}\n```";
+        } else if (d['type'] == 'image') {
+          _flushTimer?.cancel();
+          final u = List<ChatMessage>.from(state);
+          u[_aiIndex] = ChatMessage(text: _buffer.isEmpty ? '🎨 تم توليد الصورة' : _buffer, isUser: false, imageBase64: base64Decode(d['base64']));
+          state = u;
+          _save();
+          ref.read(isGeneratingProvider.notifier).state = false;
+          return;
+        }
       }
-    } catch(e) {
-      final updatedState = List<ChatMessage>.from(state);
-      updatedState[aiIndex] = ChatMessage('فشل الاتصال بالخادم.', false);
-      state = updatedState;
+    } catch (e) {
+      _buffer += "\n\n(فشل الاتصال بالخادم)";
+    } finally {
+      _flushTimer?.cancel();
+      _flush();
+      _save();
+      ref.read(isGeneratingProvider.notifier).state = false;
     }
-    _save();
   }
 
-  void clear() {
-    state = [ChatMessage('تم مسح المحادثة.', false)];
-    _save();
-  }
+  void clear() { state = [ChatMessage(text: 'تم مسح المحادثة.', isUser: false)]; _save(); }
 }
 
-final chatProvider = StateNotifierProvider<ChatNotifier, List<ChatMessage>>((ref) {
-  return ChatNotifier(ref.watch(sharedPrefsProvider));
-});
+final chatProvider = StateNotifierProvider<ChatNotifier, List<ChatMessage>>((ref) => ChatNotifier(ref.watch(sharedPrefsProvider), ref));
