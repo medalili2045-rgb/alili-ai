@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services.dart';
@@ -8,55 +9,47 @@ final sharedPrefsProvider = Provider<SharedPreferences>((ref) => throw Unimpleme
 class ChatMessage {
   final String text;
   final bool isUser;
-  ChatMessage(this.text, this.isUser);
-  Map<String, dynamic> toJson() => {'text': text, 'isUser': isUser};
-  factory ChatMessage.fromJson(Map<String, dynamic> json) {
-    return ChatMessage(json['text'] ?? '', json['isUser'] ?? false);
-  }
+  final Uint8List? imageBytes;
+  ChatMessage(this.text, this.isUser, {this.imageBytes});
+  Map<String, dynamic> toJson() => {'text': text, 'isUser': isUser, 'image': imageBytes != null ? base64Encode(imageBytes!) : null};
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(json['text'] ?? '', json['isUser'] ?? false, imageBytes: json['image'] != null ? base64Decode(json['image']) : null);
 }
 
 class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   final SharedPreferences prefs;
-  
-  ChatNotifier(this.prefs) : super([]) {
-    _load();
-  }
+  ChatNotifier(this.prefs) : super([]) { _load(); }
 
   void _load() {
     try {
       final data = prefs.getString('chat_history');
       if (data != null && data.isNotEmpty) {
         final List decoded = jsonDecode(data);
-        state = decoded.map((e) => ChatMessage.fromJson(e as Map<String, dynamic>)).toList();
-        if (state.isEmpty) _defaultState();
+        state = decoded.map((e) => ChatMessage.fromJson(e)).toList();
       } else {
-        _defaultState();
+        state = [ChatMessage('أهلاً بك! أرسل لي نصاً، أو أرفق صورة وسأحللها لك.', false)];
       }
-    } catch (e) {
-      // إذا كانت البيانات القديمة تالفة، نمسحها ونبدأ من جديد
-      _defaultState();
+    } catch (e) { state = [ChatMessage('أهلاً بك!', false)]; }
+  }
+
+  void _save() => prefs.setString('chat_history', jsonEncode(state.map((e) => e.toJson()).toList()));
+
+  Future<void> send(String text, Uint8List? imageBytes) async {
+    state = [...state, ChatMessage(text, true, imageBytes: imageBytes)];
+    _save();
+
+    // إضافة فقاعة فارغة للذكاء الاصطناعي (سيتم ملؤها بالبث)
+    state = [...state, ChatMessage('', false)];
+    final aiIndex = state.length - 1;
+
+    final history = state.sublist(0, state.length - 2).map((m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text}).toList();
+
+    String currentReply = "";
+    await for (final chunk in ApiService.chatStream(text, history, imageBytes)) {
+      currentReply += chunk;
+      final updatedState = List<ChatMessage>.from(state);
+      updatedState[aiIndex] = ChatMessage(currentReply, false);
+      state = updatedState;
     }
-  }
-
-  void _defaultState() {
-    state = [ChatMessage('أهلاً بك! أنا Alili Omni v4.0. جاهز للبحث والتفكير.', false)];
-    _save();
-  }
-
-  void _save() {
-    try {
-      prefs.setString('chat_history', jsonEncode(state.map((e) => e.toJson()).toList()));
-    } catch (e) {}
-  }
-
-  Future<void> send(String text, bool search, bool thinking) async {
-    state = [...state, ChatMessage(text, true)];
-    _save();
-
-    final history = state.sublist(0, state.length - 1).map((m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text}).toList();
-    final reply = await ApiService.chat(text, history, search, thinking);
-    
-    state = [...state, ChatMessage(reply, false)];
     _save();
   }
 
