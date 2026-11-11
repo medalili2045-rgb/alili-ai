@@ -22,17 +22,17 @@ jobs:
           flutter-version: '3.32.0'
           channel: 'stable'
           
-      - name: Setup Android Permissions and SDK
+      - name: Setup Android Permissions
         run: |
+          # حذف مجلد الأندرويد القديم لضمان إنشاء واحد جديد ونظيف
+          rm -rf android
           flutter create . --platforms=android --project-name alili_omni --org com.alili --template=app
           
-          # إضافة الصلاحيات
+          # إضافة صلاحيات الإنترنت والميكروفون والملفات
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"\/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
-          sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
           
-          # تحديث إصدار الأندرويد ليتوافق مع الحزم الجديدة
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' android/app/build.gradle
-          sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/' android/app/build.gradle
+          # تغيير اسم التطبيق
+          sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
           
           flutter pub get
           flutter clean
