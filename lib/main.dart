@@ -36,7 +36,7 @@ class AliliApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, brightness: Brightness.dark, scaffoldBackgroundColor: const Color(0xFF0F0F0F), colorScheme: const ColorScheme.dark(surface: Color(0xFF1A1A1A))),
-      home: const ChatScreen(), // تبويب واحد ذكي
+      home: const ChatScreen(),
     );
   }
 }
