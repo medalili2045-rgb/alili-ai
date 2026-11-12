@@ -19,7 +19,7 @@ jobs:
         with:
           flutter-version: '3.50.0'
           channel: 'stable'
-      - name: Setup Android, Mirror, Desugaring & Build
+      - name: Setup Android, Mirror, Desugaring
         run: |
           rm -rf android
           flutter create . --platforms=android --project-name alili_omni --org com.alili --template=app
@@ -40,7 +40,7 @@ jobs:
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
       - name: Build APK
-        run: flutter build apk --release --no-daemon
+        run: flutter build apk --release
       - name: Release
         uses: softprops/action-gh-release@v2
         if: success()
