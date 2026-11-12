@@ -19,7 +19,7 @@ jobs:
         with:
           flutter-version: '3.50.0'
           channel: 'stable'
-      - name: Setup Android, Permissions & Kotlin Desugaring
+      - name: Setup Android, Permissions & Mirror
         run: |
           # إنشاء هيكل أندرويد جديد
           rm -rf android
@@ -29,14 +29,17 @@ jobs:
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"\/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
           
-          # تحديث Gradle Wrapper إلى إصدار أحدث (8.14.0)
+          # تحديث Gradle Wrapper
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14.0-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
           
-          # تفعيل coreLibraryDesugaring في ملف Kotlin (build.gradle.kts)
+          # تفعيل coreLibraryDesugaring في ملف Kotlin
           sed -i 's/compileOptions {/compileOptions {\n        isCoreLibraryDesugaringEnabled = true/' android/app/build.gradle.kts
-          
-          # إضافة مكتبة desugar في ملف Kotlin
           sed -i 's/dependencies {/dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")/' android/app/build.gradle.kts
+          
+          # ===== الإصلاح الجديد: إضافة مرآة Google Maven =====
+          sed -i 's/pluginManagement {/pluginManagement {\n    repositories {\n        google()\n        mavenCentral()\n        gradlePluginPortal()\n    }\n}\npluginManagement {/' android/settings.gradle.kts
+          sed -i 's/dependencyResolutionManagement {/dependencyResolutionManagement {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\ndependencyResolutionManagement {/' android/settings.gradle.kts
+          # =================================================
           
           flutter pub get
           flutter clean
