@@ -17,7 +17,7 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.8'
+          flutter-version: '3.24.0' # الإصدار الأكثر استقراراً
           channel: 'stable'
       - name: Setup Android & Permissions
         run: |
@@ -25,9 +25,6 @@ jobs:
           flutter create . --platforms=android --project-name alili_omni --org com.alili --template=app
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"\/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
-          
-          # ترقية Gradle Wrapper فقط ليتوافق مع Flutter 3.47.8 (دون لمس أي ملف آخر)
-          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.14-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
           
           flutter pub get
           flutter clean
