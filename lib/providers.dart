@@ -15,7 +15,15 @@ class AppSettings {
   final double voiceSpeed;
   final bool useSearch;
   final bool useThinking;
-  AppSettings({this.model = 'glm', this.systemPrompt = 'أنت مساعد ذكي.', this.temperature = 0.5, this.voiceSpeed = 0.5, this.useSearch = false, this.useThinking = false});
+
+  AppSettings({
+    this.model = 'glm',
+    this.systemPrompt = 'أنت مساعد ذكي.',
+    this.temperature = 0.5,
+    this.voiceSpeed = 0.5,
+    this.useSearch = false,
+    this.useThinking = false,
+  });
 }
 
 class SettingsNotifier extends StateNotifier<AppSettings> {
@@ -28,6 +36,7 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     useSearch: prefs.getBool('use_search') ?? false,
     useThinking: prefs.getBool('use_thinking') ?? false,
   ));
+
   void update(AppSettings s) {
     state = s;
     prefs.setString('model', s.model);
@@ -38,24 +47,32 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     prefs.setBool('use_thinking', s.useThinking);
   }
 }
-final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) => SettingsNotifier(ref.watch(sharedPrefsProvider)));
+
+final settingsProvider = StateNotifierProvider<SettingsNotifier, AppSettings>((ref) {
+  return SettingsNotifier(ref.watch(sharedPrefsProvider));
+});
 
 class ChatMessage {
   final String text;
   final bool isUser;
   final Uint8List? imageBase64;
-  final String? videoUrl;      
-  final bool videoLoading;     
-  ChatMessage({this.text = '', required this.isUser, this.imageBase64, this.videoUrl, this.videoLoading = false});
-  
-  ChatMessage copyWith({String? text, Uint8List? imageBase64, String? videoUrl, bool? videoLoading}) =>
-    ChatMessage(text: text ?? this.text, isUser: isUser, imageBase64: imageBase64 ?? this.imageBase64, videoUrl: videoUrl ?? this.videoUrl, videoLoading: videoLoading ?? this.videoLoading);
 
-  Map<String, dynamic> toJson() => {'text': text, 'isUser': isUser, 'imageBase64': imageBase64 != null ? base64Encode(imageBase64!) : null, 'videoUrl': videoUrl};
+  ChatMessage({this.text = '', required this.isUser, this.imageBase64});
+
+  Map<String, dynamic> toJson() => {
+    'text': text,
+    'isUser': isUser,
+    'imageBase64': imageBase64 != null ? base64Encode(imageBase64!) : null,
+  };
+
   factory ChatMessage.fromJson(Map<String, dynamic> j) {
     Uint8List? img;
-    try { if (j['imageBase64'] != null) img = base64Decode(j['imageBase64']); } catch (e) {}
-    return ChatMessage(text: j['text'] ?? '', isUser: j['isUser'] ?? false, imageBase64: img, videoUrl: j['videoUrl']);
+    try {
+      if (j['imageBase64'] != null) img = base64Decode(j['imageBase64']);
+    } catch (e) {
+      img = null;
+    }
+    return ChatMessage(text: j['text'] ?? '', isUser: j['isUser'] ?? false, imageBase64: img);
   }
 }
 
@@ -67,34 +84,51 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   String _buffer = "";
   int _aiIndex = -1;
 
-  ChatNotifier(this.prefs, this.ref) : super([]) { _load(); }
+  ChatNotifier(this.prefs, this.ref) : super([]) {
+    _load();
+  }
 
   void _load() {
     try {
       final d = prefs.getString('chat_history');
-      if (d != null && d.isNotEmpty) state = (jsonDecode(d) as List).map((e) => ChatMessage.fromJson(e)).toList();
-      else state = [ChatMessage(text: 'مرحباً! أنا Alili. اسأل، ارسم، أو اطلب فيديو.', isUser: false)];
+      if (d != null && d.isNotEmpty) {
+        state = (jsonDecode(d) as List).map((e) => ChatMessage.fromJson(e)).toList();
+      } else {
+        state = [ChatMessage(text: 'مرحباً! أنا Alili. اسأل، ارسم، أو اطلب كود.', isUser: false)];
+      }
       userMemory = prefs.getStringList('user_memory') ?? [];
-    } catch (e) { state = [ChatMessage(text: 'مرحباً!', isUser: false)]; }
+    } catch (e) {
+      state = [ChatMessage(text: 'مرحباً!', isUser: false)];
+    }
   }
 
-  void _save() => prefs.setString('chat_history', jsonEncode(state.map((e) => e.toJson()).toList()));
+  void _save() {
+    prefs.setString('chat_history', jsonEncode(state.map((e) => e.toJson()).toList()));
+  }
 
   void _flush() {
     if (_buffer.isEmpty || _aiIndex == -1) return;
     final u = List<ChatMessage>.from(state);
-    if (_aiIndex < u.length) { u[_aiIndex] = u[_aiIndex].copyWith(text: _buffer); state = u; }
+    if (_aiIndex < u.length) {
+      u[_aiIndex] = ChatMessage(text: _buffer, isUser: false, imageBase64: u[_aiIndex].imageBase64);
+      state = u;
+    }
   }
 
   Future<void> send(String text, Uint8List? img, AppSettings s) async {
     ref.read(isGeneratingProvider.notifier).state = true;
     state = [...state, ChatMessage(text: text, isUser: true, imageBase64: img)];
     _save();
+    
     state = [...state, ChatMessage(text: '', isUser: false)];
     _aiIndex = state.length - 1;
     _buffer = "";
+    
     _flushTimer = Timer.periodic(const Duration(milliseconds: 80), (_) => _flush());
-    final history = state.sublist(0, state.length - 2).map((m) => {'role': m.isUser ? 'user' : 'assistant', 'content': m.text}).toList();
+    final history = state.sublist(0, state.length - 2).map((m) => {
+      'role': m.isUser ? 'user' : 'assistant',
+      'content': m.text,
+    }).toList();
 
     try {
       await for (final chunk in ApiService.chatStream(text, history, userMemory, img, s)) {
@@ -106,19 +140,10 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
         } else if (d['type'] == 'image') {
           _flushTimer?.cancel();
           final u = List<ChatMessage>.from(state);
-          u[_aiIndex] = u[_aiIndex].copyWith(text: _buffer.isEmpty ? '🎨 الصورة جاهزة' : _buffer, imageBase64: base64Decode(d['base64']));
+          u[_aiIndex] = ChatMessage(text: _buffer.isEmpty ? '🎨 الصورة جاهزة' : _buffer, isUser: false, imageBase64: base64Decode(d['base64']));
           state = u;
           _save();
           ref.read(isGeneratingProvider.notifier).state = false;
-          return;
-        } else if (d['type'] == 'video_pending') {
-          _flushTimer?.cancel();
-          _buffer = d['text'] ?? '🎬 جاري توليد الفيديو...';
-          final u = List<ChatMessage>.from(state);
-          u[_aiIndex] = u[_aiIndex].copyWith(text: _buffer, videoLoading: true);
-          state = u;
-          ref.read(isGeneratingProvider.notifier).state = false;
-          _pollVideo(d['job_id'], _aiIndex);
           return;
         }
       }
@@ -132,32 +157,12 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
     }
   }
 
-  Future<void> _pollVideo(String jobId, int idx) async {
-    for (int i = 0; i < 120; i++) {
-      await Future.delayed(const Duration(seconds: 5));
-      if (!mounted) return;
-      try {
-        final d = await ApiService.videoStatus(jobId);
-        final url = d['video_url'] ?? d['url'];
-        if (url != null) {
-          final u = List<ChatMessage>.from(state);
-          u[idx] = u[idx].copyWith(text: '🎬 الفيديو جاهز!', videoUrl: url, videoLoading: false);
-          state = u;
-          _save();
-          return;
-        }
-        if (d['status'] == 'FAILED' || d['error'] != null) {
-          final u = List<ChatMessage>.from(state);
-          u[idx] = u[idx].copyWith(text: '❌ فشل توليد الفيديو.', videoLoading: false);
-          state = u;
-          _save();
-          return;
-        }
-      } catch (e) {}
-    }
+  void clear() {
+    state = [ChatMessage(text: 'تم مسح المحادثة.', isUser: false)];
+    _save();
   }
-
-  void clear() { state = [ChatMessage(text: 'تم مسح المحادثة.', isUser: false)]; _save(); }
 }
 
-final chatProvider = StateNotifierProvider<ChatNotifier, List<ChatMessage>>((ref) => ChatNotifier(ref.watch(sharedPrefsProvider), ref));
+final chatProvider = StateNotifierProvider<ChatNotifier, List<ChatMessage>>((ref) {
+  return ChatNotifier(ref.watch(sharedPrefsProvider), ref);
+});
