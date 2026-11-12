@@ -73,7 +73,7 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
     try {
       final d = prefs.getString('chat_history');
       if (d != null && d.isNotEmpty) state = (jsonDecode(d) as List).map((e) => ChatMessage.fromJson(e)).toList();
-      else state = [ChatMessage(text: 'مرحباً! أنا Alili. اسأل، ارسم، أو اطلب فيديو — كل شيء هنا.', isUser: false)];
+      else state = [ChatMessage(text: 'مرحباً! أنا Alili. اسأل، ارسم، أو اطلب فيديو.', isUser: false)];
       userMemory = prefs.getStringList('user_memory') ?? [];
     } catch (e) { state = [ChatMessage(text: 'مرحباً!', isUser: false)]; }
   }
