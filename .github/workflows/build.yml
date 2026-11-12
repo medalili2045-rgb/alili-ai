@@ -11,52 +11,36 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-          
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.50.0'
           channel: 'stable'
-          
       - name: Setup Android, Mirror, Desugaring & Build
         run: |
-          # 1. إنشاء هيكل أندرويد جديد
           rm -rf android
           flutter create . --platforms=android --project-name alili_omni --org com.alili --template=app
           
-          # 2. إضافة الصلاحيات وتغيير الاسم
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"\/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
           
-          # 3. تحديث Gradle Wrapper إلى إصدار 8.7 (أكثر استقراراً)
           sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.7-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
           
-          # 4. إجبار المشروع على استخدام مرآة Google Maven لتجنب حظر IP
-          # هذا هو الإصلاح الجذري لمشكلة التحميل
           sed -i 's/pluginManagement {/pluginManagement {\n    repositories {\n        google()\n        mavenCentral()\n        gradlePluginPortal()\n    }\n}\npluginManagement {/' android/settings.gradle.kts
           sed -i 's/dependencyResolutionManagement {/dependencyResolutionManagement {\n    repositories {\n        google()\n        mavenCentral()\n    }\n}\ndependencyResolutionManagement {/' android/settings.gradle.kts
           
-          # 5. تفعيل coreLibraryDesugaring (ضروري لحزمة video_player)
           sed -i 's/compileOptions {/compileOptions {\n        isCoreLibraryDesugaringEnabled = true/' android/app/build.gradle.kts
           sed -i 's/dependencies {/dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")/' android/app/build.gradle.kts
           
-          # 6. تنظيف شامل
           flutter pub get
           flutter clean
-          
-          # 7. توليد اللوغو والسبلاش
           dart run flutter_launcher_icons
           dart run flutter_native_splash:create
-          
       - name: Build APK
-        run: |
-          # 8. تعطيل Gradle Daemon لمنع مشاكل الذاكرة أثناء التحميل
-          flutter build apk --release --no-daemon
-          
+        run: flutter build apk --release --no-daemon
       - name: Release
         uses: softprops/action-gh-release@v2
         if: success()
