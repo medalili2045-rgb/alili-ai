@@ -11,39 +11,30 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-          
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.32.0'
           channel: 'stable'
-          
-      - name: Setup Android Permissions
+      - name: Setup Android, Icon and Splash
         run: |
-          # حذف مجلد الأندرويد القديم لضمان إنشاء واحد جديد ونظيف
           rm -rf android
           flutter create . --platforms=android --project-name alili_omni --org com.alili --template=app
-          
-          # إضافة صلاحيات الإنترنت والميكروفون والملفات
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"\/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
-          
-          # تغيير اسم التطبيق
           sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
-          
           flutter pub get
           flutter clean
-          
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
       - name: Build APK
         run: flutter build apk --release
-        
       - name: Release
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v8.0.${{ github.run_number }}
-          name: Alili Omni v8.0.${{ github.run_number }}
+          tag_name: v10.0.${{ github.run_number }}
+          name: Alili Omni v10.0.${{ github.run_number }}
           files: build/app/outputs/flutter-apk/app-release.apk
