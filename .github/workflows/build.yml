@@ -19,12 +19,19 @@ jobs:
         with:
           flutter-version: '3.47.8'
           channel: 'stable'
-      - name: Setup Android & Permissions Only
+      - name: Setup Android, Permissions & Kotlin Version
         run: |
           rm -rf android
           flutter create . --platforms=android --project-name alili_omni --org com.alili --template=app
+          
+          # إضافة الصلاحيات وتغيير الاسم
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"\/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
+          
+          # تحديث إصدار Kotlin و AGP
+          sed -i 's/ext.kotlin_version = .*/ext.kotlin_version = "2.0.20"/' android/build.gradle
+          sed -i 's/version "7.3.0"/version "8.2.2"/' android/settings.gradle
+          
           flutter pub get
           flutter clean
           dart run flutter_launcher_icons
@@ -35,6 +42,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
-          tag_name: v11.0.${{ github.run_number }}
-          name: Alili Omni v11.0.${{ github.run_number }}
+          tag_name: v12.0.${{ github.run_number }}
+          name: Alili Omni v12.0.${{ github.run_number }}
           files: build/app/outputs/flutter-apk/app-release.apk
