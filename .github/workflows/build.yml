@@ -17,18 +17,27 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.50.0' # <--- تم الترقية لحل مشكلة الحزم
+          flutter-version: '3.50.0'
           channel: 'stable'
-      - name: Setup Android, Icon and Splash
+      - name: Setup Android, Permissions, Gradle & Desugaring
         run: |
+          # إنشاء هيكل أندرويد جديد
           rm -rf android
           flutter create . --platforms=android --project-name alili_omni --org com.alili --template=app
+          
+          # إضافة الصلاحيات وتغيير الاسم
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"\/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
           
-          # إضافة إصدار الأندرويد لدعم الفيديو
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' android/app/build.gradle.kts || true
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' android/app/build.gradle || true
+          # تحديث Gradle Wrapper إلى إصدار مستقر
+          sed -i 's|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.7-bin.zip|' android/gradle/wrapper/gradle-wrapper.properties
+          
+          # تفعيل coreLibraryDesugaring لحزمة video_player
+          sed -i 's/compileOptions {/compileOptions {\n        coreLibraryDesugaringEnabled true/' android/app/build.gradle.kts || true
+          sed -i 's/compileOptions {/compileOptions {\n        coreLibraryDesugaringEnabled true/' android/app/build.gradle || true
+          
+          # إضافة مكتبة desugar
+          echo "dependencies { coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4' }" >> android/app/build.gradle.kts || echo "dependencies { coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4' }" >> android/app/build.gradle
           
           flutter pub get
           flutter clean
