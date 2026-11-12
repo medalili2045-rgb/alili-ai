@@ -27,4 +27,12 @@ class ApiService {
       }
     }
   }
+
+  static Future<Map<String, dynamic>> videoStatus(String jobId) async {
+    final res = await http.post(Uri.parse(workerUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'type': 'video_status', 'job_id': jobId})
+    ).timeout(const Duration(seconds: 15));
+    return jsonDecode(utf8.decode(res.bodyBytes));
+  }
 }
