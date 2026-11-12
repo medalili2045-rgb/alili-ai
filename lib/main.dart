@@ -23,10 +23,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
   @override
   Widget build(BuildContext context) {
     if (_prefs == null) {
-      return const MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: Scaffold(backgroundColor: Color(0xFF0F0F0F), body: Center(child: CircularProgressIndicator(color: Colors.grey))),
-      );
+      return const MaterialApp(debugShowCheckedModeBanner: false, home: Scaffold(backgroundColor: Color(0xFF0F0F0F), body: Center(child: CircularProgressIndicator(color: Colors.grey))));
     }
     return ProviderScope(overrides: [sharedPrefsProvider.overrideWithValue(_prefs!)], child: const AliliApp());
   }
@@ -38,13 +35,8 @@ class AliliApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F0F0F),
-        colorScheme: const ColorScheme.dark(surface: Color(0xFF1A1A1A)),
-      ),
-      home: const ChatScreen(),
+      theme: ThemeData(useMaterial3: true, brightness: Brightness.dark, scaffoldBackgroundColor: const Color(0xFF0F0F0F), colorScheme: const ColorScheme.dark(surface: Color(0xFF1A1A1A))),
+      home: const ChatScreen(), // ← تبويب واحد فقط
     );
   }
 }
