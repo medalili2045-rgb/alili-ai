@@ -17,7 +17,7 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.32.0'
+          flutter-version: '3.50.0' # <--- تم الترقية لحل مشكلة الحزم
           channel: 'stable'
       - name: Setup Android, Icon and Splash
         run: |
@@ -25,6 +25,11 @@ jobs:
           flutter create . --platforms=android --project-name alili_omni --org com.alili --template=app
           sed -i 's/<application/<uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.RECORD_AUDIO"\/>\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"\/>\n    <application/' android/app/src/main/AndroidManifest.xml
           sed -i 's/android:label="alili_omni"/android:label="Alili Omni"/' android/app/src/main/AndroidManifest.xml
+          
+          # إضافة إصدار الأندرويد لدعم الفيديو
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' android/app/build.gradle.kts || true
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/' android/app/build.gradle || true
+          
           flutter pub get
           flutter clean
           dart run flutter_launcher_icons
